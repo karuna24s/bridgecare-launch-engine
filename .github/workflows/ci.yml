@@ -66,8 +66,12 @@ jobs:
         run: yarn install --frozen-lockfile
 
       - name: Setup Database
-       # Senior Move: Migrate first to generate schema.rb, then prepare test env
+       # The 'Senior' sequence:
+        # 1. Create the physical DB
+        # 2. Run migrations to build the schema
+        # 3. Prepare the test environment
         run: |
+          bin/rails db:create
           bin/rails db:migrate
           bin/rails db:test:prepare
 
