@@ -17,9 +17,9 @@ gem "stimulus-rails"
 # Bundle and process CSS [https://github.com/rails/cssbundling-rails]
 gem "cssbundling-rails"
 # The Modern Vite Bridge
-gem 'vite_rails'
+gem "vite_rails"
 # The Senior SPA Bridge
-gem 'inertia_rails'
+gem "inertia_rails"
 # Use Redis adapter to run Action Cable in production
 # gem "redis", ">= 4.0.1"
 
