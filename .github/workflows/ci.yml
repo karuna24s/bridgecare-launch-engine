@@ -66,7 +66,10 @@ jobs:
         run: yarn install --frozen-lockfile
 
       - name: Setup Database
-        run: bin/rails db:test:prepare
+       # Senior Move: Migrate first to generate schema.rb, then prepare test env
+        run: |
+          bin/rails db:migrate
+          bin/rails db:test:prepare
 
       - name: Verify Vite Build
         run: bundle exec vite build
