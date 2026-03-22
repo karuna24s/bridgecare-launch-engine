@@ -7,7 +7,7 @@ on:
     branches: [ "main", "develop" ]
 
 jobs:
-  # 1. Security & Linting: The "Guardians"
+  # 1. Static Analysis: The "Security & Style" Gate
   scan:
     runs-on: ubuntu-latest
     steps:
@@ -23,19 +23,19 @@ jobs:
         run: bundle exec rubocop
 
       - name: Run Brakeman (Security Scan)
-        run: bundle exec brakeman --no-exit-on-warn
+        # Enforces a Zero-Warning policy by allowing exit codes to propagate
+        run: bundle exec brakeman --no-pager
 
-  # 2. Functional Testing: The "Truth"
+  # 2. Functional Testing: The "Full Suite" Gate
   test:
-    needs: scan # Only run tests if security/linting passes
+    needs: scan # Only run expensive tests if the code is safe and clean
     runs-on: ubuntu-latest
     services:
       postgres:
         image: postgres:15-alpine
         env:
           POSTGRES_PASSWORD: password
-        ports:
-          - 5432:5432
+        ports: ["5432:5432"]
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -66,10 +66,7 @@ jobs:
         run: yarn install --frozen-lockfile
 
       - name: Setup Database
-       # The 'Senior' sequence:
-        # 1. Create the physical DB
-        # 2. Run migrations to build the schema
-        # 3. Prepare the test environment
+        # Sequence: Create DB -> Run Migrations -> Load Schema into Test env
         run: |
           bin/rails db:create
           bin/rails db:migrate
@@ -78,7 +75,7 @@ jobs:
       - name: Verify Vite Build
         run: bundle exec vite build
 
-      - name: Run Tests (Minitest)
-        # No longer a no-op! This executes the actual test suite.
-        run: bin/rails test test:system
+      - name: Run All Tests
+        # Corrected: test:all ensures unit, integration, and system tests run
+        run: bin/rails test:all
 

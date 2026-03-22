@@ -54,6 +54,13 @@ In the childcare sector (BridgeCare/Sittercity), "Launching" a provider involves
   - **Decision**: Restored actual test execution (`bin/rails test`) to replace a "no-op" echo string.
   - **Reasoning**: A "Green" build must represent verified code correctness. Executing the existing `test/` directory ensures foundations aren't broken during the Vite/Inertia transition.
 
+### 11. CI Pipeline Hardening (Correction)
+- **Observation**: The `--no-exit-on-warn` flag in Brakeman allowed security vulnerabilities to pass CI silently.
+- **Decision**: Removed the flag to enforce a "Zero Warning" security policy.
+- **Observation**: The command `bin/rails test test:system` was discarding the system test argument.
+- **Decision**: Standardized on `bin/rails test:all` to ensure the full suite (including Capybara/System tests) is executed.
+- **Reasoning**: A "Green" build must represent total system integrity, not just partial unit verification.
+
 ---
 
 *Created by Karuna - Senior III Architect - Sunday, March 22, 2026*
