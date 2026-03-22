@@ -1,5 +1,5 @@
-# .github/workflows/ci.yml
 name: "CI Pipeline"
+
 on:
   push:
     branches: [ "main", "develop" ]
@@ -7,7 +7,27 @@ on:
     branches: [ "main", "develop" ]
 
 jobs:
+  # 1. Security & Linting: The "Guardians"
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: Run RuboCop (Style & Lint)
+        run: bundle exec rubocop
+
+      - name: Run Brakeman (Security Scan)
+        run: bundle exec brakeman --no-exit-on-warn
+
+  # 2. Functional Testing: The "Truth"
   test:
+    needs: scan # Only run tests if security/linting passes
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -25,7 +45,6 @@ jobs:
     env:
       RAILS_ENV: test
       DATABASE_URL: "postgres://postgres:password@localhost:5432/bridgecare_test"
-      # Dummy key for CI asset compilation
       SECRET_KEY_BASE: 1234567890abcdef1234567890abcdef
 
     steps:
@@ -37,21 +56,22 @@ jobs:
         with:
           bundler-cache: true
 
-      - name: Install Node.js and dependencies
+      - name: Install Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'yarn'
 
-      - name: Install Yarn dependencies
+      - name: Install JS dependencies
         run: yarn install --frozen-lockfile
 
       - name: Setup Database
-        run: bin/rails db:prepare
+        run: bin/rails db:test:prepare
 
-      - name: Precompile Assets (Verifies Vite/Inertia config)
-        run: bin/rake vite:build
+      - name: Verify Vite Build
+        run: bundle exec vite build
 
-      # We will add 'bundle exec rspec' here once we write the tests
-      - name: Run Tests
-        run: echo "Infrastructure Verified. Ready for Specs."
+      - name: Run Tests (Minitest)
+        # No longer a no-op! This executes the actual test suite.
+        run: bin/rails test test:system
+

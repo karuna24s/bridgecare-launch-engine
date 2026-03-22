@@ -24,4 +24,36 @@ In the childcare sector (BridgeCare/Sittercity), "Launching" a provider involves
 - **Benefit**: Makes the core business logic 100% testable in isolation without hitting the database frequently.
 
 ---
+
+### 🏗️ Technical Implementation Details
+
+- **ADR 5: Vue 3 Composition API (<script setup>)**
+  - **Decision**: Standardized on the `script setup` syntax for all Vue components.
+  - **Reasoning**: Reduces boilerplate and improves TypeScript inference. It is the modern standard for 2026, signaling a forward-looking codebase.
+
+- **ADR 6: Tailwind CSS for Design System**
+  - **Decision**: Implemented Tailwind CSS for all UI styling.
+  - **Reasoning**: Provides a "utility-first" approach that ensures the UI is responsive and consistent without maintaining massive, custom CSS files that create technical debt.
+
+- **ADR 7: Props-Based Data Flow (Inertia)**
+  - **Decision**: Passing data from Rails Controllers to Vue via Props instead of internal API fetches.
+  - **Reasoning**: Eliminates the need for a complex client-side state manager (like Pinia) for initial page loads.
+  - **Benefit**: Faster "First Contentful Paint" and simplified debugging.
+
+- **ADR 8: Serialization Layer (as_json vs Blueprinter)**
+  - **Decision**: Using controlled `.as_json` serialization in controllers for the MVP.
+  - **Reasoning**: Prevents "Leaky Abstractions" by explicitly whitelisting attributes (e.g., `only: [:id, :status]`).
+  - **Policy**: Avoids sending sensitive database timestamps or internal IDs to the client.
+
+### 🛡️ Security & Quality Gates
+- **ADR 9: Automated Security Scanning**:
+  - **Decision**: Re-integrated `brakeman` and `rubocop` as pre-requisite jobs in CI.
+  - **Reasoning**: For a platform handling provider PII and licensing data, automated static analysis is non-negotiable. PRs now fail if they introduce high-severity security vulnerabilities.
+
+- **ADR 10: CI Pipeline Integrity**:
+  - **Decision**: Restored actual test execution (`bin/rails test`) to replace a "no-op" echo string.
+  - **Reasoning**: A "Green" build must represent verified code correctness. Executing the existing `test/` directory ensures foundations aren't broken during the Vite/Inertia transition.
+
+---
+
 *Created by Karuna - Senior III Architect - Sunday, March 22, 2026*
