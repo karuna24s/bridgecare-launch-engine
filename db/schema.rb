@@ -10,8 +10,17 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 0) do
+ActiveRecord::Schema[7.2].define(version: 2026_03_22_184113) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
+  create_table "providers", force: :cascade do |t|
+    t.string "name"
+    t.string "license_number"
+    t.string "background_check_id"
+    t.boolean "insurance_verified"
+    t.jsonb "compliance_data"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
 end
