@@ -7,7 +7,7 @@
 module Launch
   class EligibilityService
     # Universal requirements for every provider in the system
-    CORE_REQUIREMENTS = [:license_number, :background_check_id, :insurance_verified].freeze
+    CORE_REQUIREMENTS = [ :license_number, :background_check_id, :insurance_verified ].freeze
 
     def initialize(provider)
       @provider = provider
@@ -44,17 +44,17 @@ module Launch
     # The 'Scale' Logic: California requires a Health & Safety certification.
     def state_specific_requirements
       case provider_state
-      when 'CA'
-        [:health_safety_certified]
-      when 'NY'
-        [:site_inspection_passed]
+      when "CA"
+        [ :health_safety_certified ]
+      when "NY"
+        [ :site_inspection_passed ]
       else
         []
       end
     end
 
     def provider_state
-      @provider.compliance_data['state_code']&.upcase
+      @provider.compliance_data["state_code"]&.upcase
     end
 
     def calculate_score
