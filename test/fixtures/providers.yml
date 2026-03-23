@@ -2,14 +2,14 @@
 
 one:
   name: MyString
-  license_number: MyString
+  license_number: LIC-001
   background_check_id: MyString
   insurance_verified: false
   compliance_data: 
 
 two:
   name: MyString
-  license_number: MyString
+  license_number: LIC-002
   background_check_id: MyString
   insurance_verified: false
   compliance_data: 
