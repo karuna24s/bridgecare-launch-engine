@@ -15,10 +15,13 @@ module Launch
 
     def call
       @errors = []
+      eligible = valid?
+      score = calculate_score
+      missing = @errors.freeze
       {
-        eligible: valid?,
-        score: calculate_score,
-        missing: @errors.freeze,
+        eligible: eligible,
+        score: score,
+        missing: missing,
         state: provider_state,
         analyzed_at: Time.current.iso8601
       }
