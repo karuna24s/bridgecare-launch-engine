@@ -26,7 +26,7 @@ FactoryBot.define do
         {
           score: 33,
           eligible: false,
-          issues: ["Missing License number", "Missing Insurance verified"],
+          issues: [ "Missing License number", "Missing Insurance verified" ],
           state: "CA"
         }
       end

@@ -30,7 +30,7 @@ module Launch
 
       # Create the audit trail
       @provider.activity_logs.create!(
-        action: 'eligibility_check',
+        action: "eligibility_check",
         note: note,
         metadata: {
           score: result[:score],
