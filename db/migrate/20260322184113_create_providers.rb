@@ -9,5 +9,7 @@ class CreateProviders < ActiveRecord::Migration[7.2]
 
       t.timestamps
     end
+
+    add_index :providers, :license_number, unique: true, where: "license_number IS NOT NULL AND license_number != ''"
   end
 end

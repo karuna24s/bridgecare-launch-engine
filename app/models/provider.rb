@@ -6,8 +6,8 @@
 
 class Provider < ApplicationRecord
   # ADR 2: PostgreSQL JSONB for flexible compliance data (e.g., state-specific certs)
-  # This allows the Engine to check for 'health_safety_signed' without a migration.
-  store_accessor :compliance_data, :state_code, :health_safety_signed
+  # This allows the Engine to check for 'health_safety_certified' without a migration.
+  store_accessor :compliance_data, :state_code, :health_safety_certified
 
   validates :name, presence: true
   validates :license_number, uniqueness: true, allow_blank: true

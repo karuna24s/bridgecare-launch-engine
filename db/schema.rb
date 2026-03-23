@@ -22,5 +22,6 @@ ActiveRecord::Schema[7.2].define(version: 2026_03_22_184113) do
     t.jsonb "compliance_data"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.index ["license_number"], name: "index_providers_on_license_number", unique: true, where: "((license_number IS NOT NULL) AND ((license_number)::text <> ''::text))"
   end
 end
