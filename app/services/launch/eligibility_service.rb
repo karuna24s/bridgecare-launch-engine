@@ -24,11 +24,9 @@ module Launch
       }
     end
 
-    # Senior Move: This method creates an activity log for the eligibility check
     def call_with_logging(note: nil)
-      result = call # Execute existing logic
+      result = call
 
-      # Create the audit trail
       @provider.activity_logs.create!(
         action: "eligibility_check",
         note: note,
@@ -69,10 +67,10 @@ module Launch
     end
 
     def calculate_score
-      total_rules = all_rules.size
-      return 0 if total_rules.zero?
-      met_count = all_rules.count { |rule| rule_met?(rule) }
-      ((met_count.to_f / total_rules) * 100).round
+      rules = all_rules
+      return 100 if rules.empty?
+      met_count = rules.count { |rule| rule_met?(rule) }
+      ((met_count.to_f / rules.size) * 100).round
     end
 
     def all_rules
