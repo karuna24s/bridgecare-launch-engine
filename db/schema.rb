@@ -10,9 +10,20 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_03_22_184113) do
+ActiveRecord::Schema[7.2].define(version: 2026_03_23_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
+
+  create_table "activity_logs", force: :cascade do |t|
+    t.string "loggable_type", null: false
+    t.bigint "loggable_id", null: false
+    t.string "action", null: false
+    t.jsonb "metadata", default: {}
+    t.string "note"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["loggable_type", "loggable_id"], name: "index_activity_logs_on_loggable"
+  end
 
   create_table "providers", force: :cascade do |t|
     t.string "name"
@@ -22,6 +33,5 @@ ActiveRecord::Schema[7.2].define(version: 2026_03_22_184113) do
     t.jsonb "compliance_data"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index ["license_number"], name: "index_providers_on_license_number", unique: true, where: "((license_number IS NOT NULL) AND ((license_number)::text <> ''::text))"
   end
 end

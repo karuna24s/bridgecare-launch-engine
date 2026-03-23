@@ -24,6 +24,25 @@ module Launch
       }
     end
 
+    # Senior Move: This method creates an activity log for the eligibility check
+    def call_with_logging(note: nil)
+      result = call # Execute existing logic
+
+      # Create the audit trail
+      @provider.activity_logs.create!(
+        action: 'eligibility_check',
+        note: note,
+        metadata: {
+          score: result[:score],
+          eligible: result[:eligible],
+          issues: result[:missing],
+          state: result[:state]
+        }
+      )
+
+      result
+    end
+
     private
 
     def valid?
