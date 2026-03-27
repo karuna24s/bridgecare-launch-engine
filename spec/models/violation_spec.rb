@@ -20,6 +20,11 @@ RSpec.describe Violation, type: :model do
       violation.category = nil
       expect(violation).not_to be_valid
     end
+
+    it "is invalid when resolved is nil" do
+      violation.resolved = nil
+      expect(violation).not_to be_valid
+    end
   end
 
   describe "Scopes" do

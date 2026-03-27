@@ -9,7 +9,7 @@ class AddProgramAssuranceToProviders < ActiveRecord::Migration[7.2]
       t.string :category, null: false # e.g., 'Safety', 'Health', 'Financial'
       t.string :severity, null: false # 'critical' or 'minor'
       t.text :description
-      t.boolean :resolved, default: false
+      t.boolean :resolved, null: false, default: false
       t.date :occurred_on
       t.timestamps
     end
