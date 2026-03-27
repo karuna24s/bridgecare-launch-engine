@@ -48,13 +48,46 @@ RSpec.describe Launch::RiskAssessmentService do
       end
     end
 
+    context "with a single critical violation" do
+      before do
+        provider.violations.create!(
+          category: "Safety",
+          severity: "critical",
+          occurred_on: Date.current
+        )
+      end
+
+      it "assigns 30 points and NEEDS_REVIEW" do
+        expect(service.call).to eq(30)
+        expect(provider.reload.risk_score).to eq(30)
+        expect(provider.risk_flags).to include("NEEDS_REVIEW")
+      end
+    end
+
+    context "when violations would exceed the score cap" do
+      before do
+        15.times do
+          provider.violations.create!(category: "Admin", severity: "minor")
+        end
+      end
+
+      it "caps the score at 100 and sets high-severity flags" do
+        service.call
+        expect(provider.reload.risk_score).to eq(100)
+        expect(provider.risk_flags).to include("NEEDS_REVIEW", "HIGH_PRIORITY_AUDIT")
+      end
+    end
+
     context "data integrity" do
       it "updates the last_assessed_at timestamp" do
         expect { service.call }.to change { provider.last_assessed_at }
       end
 
-      it "creates an activity log entry" do
+      it "creates an activity log with assessment metadata" do
         expect { service.call }.to change(ActivityLog, :count).by(1)
+        last_log = ActivityLog.last
+        expect(last_log.action).to eq("risk_assessment_performed")
+        expect(last_log.metadata["engine"]).to eq("bridgecare-assurance-v1")
       end
     end
   end
