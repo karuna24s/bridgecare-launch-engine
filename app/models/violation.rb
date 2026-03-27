@@ -9,8 +9,8 @@ class Violation < ApplicationRecord
   validates :severity, inclusion: { in: %w[critical minor] }
   validates :resolved, inclusion: { in: [ true, false ] }
 
-  # Unresolved: false or NULL (NULL never matches `WHERE resolved = FALSE` in SQL).
-  scope :active, -> { where(resolved: false).or(where(resolved: nil)) }
+  # Unresolved violations (resolved is NOT NULL in the database).
+  scope :active, -> { where(resolved: false) }
   scope :critical, -> { active.where(severity: "critical") }
   scope :minor, -> { active.where(severity: "minor") }
 end
