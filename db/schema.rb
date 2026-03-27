@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_03_23_000001) do
+ActiveRecord::Schema[7.2].define(version: 2026_03_27_150100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -33,6 +33,25 @@ ActiveRecord::Schema[7.2].define(version: 2026_03_23_000001) do
     t.jsonb "compliance_data"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "risk_score", default: 0
+    t.jsonb "risk_flags", default: []
+    t.datetime "last_assessed_at"
     t.index ["license_number"], name: "index_providers_on_license_number", unique: true, where: "((license_number IS NOT NULL) AND ((license_number)::text <> ''::text))"
+    t.index ["risk_flags"], name: "index_providers_on_risk_flags", using: :gin
+    t.index ["risk_score"], name: "index_providers_on_risk_score"
   end
+
+  create_table "violations", force: :cascade do |t|
+    t.bigint "provider_id", null: false
+    t.string "category", null: false
+    t.string "severity", null: false
+    t.text "description"
+    t.boolean "resolved", default: false, null: false
+    t.date "occurred_on"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["provider_id"], name: "index_violations_on_provider_id"
+  end
+
+  add_foreign_key "violations", "providers"
 end
