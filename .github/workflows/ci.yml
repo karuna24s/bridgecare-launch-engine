@@ -32,7 +32,8 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:15-alpine
+        # AWS Public ECR mirrors Docker Hub official images; avoids Hub rate limits on shared runners.
+        image: public.ecr.aws/docker/library/postgres:15-alpine
         env:
           POSTGRES_PASSWORD: password
         ports: ["5432:5432"]
