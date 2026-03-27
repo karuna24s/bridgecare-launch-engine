@@ -45,11 +45,9 @@ module Launch
       # 2. Insurance Check
       points += WEIGHTS[:unverified_insurance] unless @provider.insurance_verified?
 
-      # 3. Violation Logic (using the new Violation model)
-      if @provider.respond_to?(:violations)
-        points += (@provider.violations.critical.count * WEIGHTS[:critical_violation])
-        points += (@provider.violations.minor.count * WEIGHTS[:minor_violation])
-      end
+      # 3. Violation Logic (Provider defines has_many :violations)
+      points += (@provider.violations.critical.count * WEIGHTS[:critical_violation])
+      points += (@provider.violations.minor.count * WEIGHTS[:minor_violation])
 
       [ points, 100 ].min
     end
