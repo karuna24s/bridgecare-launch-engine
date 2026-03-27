@@ -4,8 +4,6 @@
 # Purpose: Core data entity for the Launch Engine.
 # Note: Logic is encapsulated in Service Objects to maintain testability.
 
-# app/models/provider.rb
-
 class Provider < ApplicationRecord
   # Established relationship with ActivityLog for the audit trail.
   has_many :activity_logs, as: :loggable, dependent: :destroy
