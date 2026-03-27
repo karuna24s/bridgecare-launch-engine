@@ -10,7 +10,6 @@ class Violation < ApplicationRecord
 
   # Scopes for the Risk Engine
   scope :active, -> { where(resolved: false) }
-  scope :critical, -> { active.where(severity: 'critical') }
-  scope :minor, -> { active.where(severity: 'minor') }
+  scope :critical, -> { active.where(severity: "critical") }
+  scope :minor, -> { active.where(severity: "minor") }
 end
-

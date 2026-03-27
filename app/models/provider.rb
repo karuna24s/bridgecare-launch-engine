@@ -26,12 +26,12 @@ class Provider < ApplicationRecord
 
   # Returns a user-friendly risk status based on the engine's score.
   def risk_status
-    return 'Pending' if last_assessed_at.nil?
+    return "Pending" if last_assessed_at.nil?
 
     case risk_score
-    when 0..30  then 'Low Risk'
-    when 31..70 then 'Moderate Risk'
-    else 'High Risk'
+    when 0..30  then "Low Risk"
+    when 31..70 then "Moderate Risk"
+    else "High Risk"
     end
   end
 end
