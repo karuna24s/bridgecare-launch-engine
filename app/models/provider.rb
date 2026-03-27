@@ -4,18 +4,34 @@
 # Purpose: Core data entity for the Launch Engine.
 # Note: Logic is encapsulated in Service Objects to maintain testability.
 
+# app/models/provider.rb
+
 class Provider < ApplicationRecord
-  # Senior Move: dependent: :destroy ensures we don't leave orphaned logs
+  # Established relationship with ActivityLog for the audit trail.
   has_many :activity_logs, as: :loggable, dependent: :destroy
-  # ADR 2: PostgreSQL JSONB for flexible compliance data (e.g., state-specific certs)
-  # This allows the Engine to check for 'health_safety_certified' without a migration.
-  store_accessor :compliance_data, :state_code, :health_safety_certified
 
-  validates :name, presence: true
-  validates :license_number, uniqueness: true, allow_blank: true
+  # New relationship for Program Assurance tracking.
+  # If a provider is deleted, their violation history is cleaned up.
+  has_many :violations, dependent: :destroy
 
-  # Senior Move: A convenience method to trigger the engine
-  def eligibility
-    Launch::EligibilityService.new(self).call
+  # UPDATED: We removed 'license_type' and 'state' because they don't exist in your schema.
+  # We now validate the columns we actually have.
+  validates :name, :license_number, presence: true
+
+  # Since 'license_expiration_date' is also missing from your column list,
+  # we should remove or comment out this method to prevent NoMethodErrors.
+  # def license_expired?
+  #   false
+  # end
+
+  # Returns a user-friendly risk status based on the engine's score.
+  def risk_status
+    return 'Pending' if last_assessed_at.nil?
+
+    case risk_score
+    when 0..30  then 'Low Risk'
+    when 31..70 then 'Moderate Risk'
+    else 'High Risk'
+    end
   end
 end
