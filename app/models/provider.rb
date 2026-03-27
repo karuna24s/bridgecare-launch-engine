@@ -16,7 +16,8 @@ class Provider < ApplicationRecord
 
   # UPDATED: We removed 'license_type' and 'state' because they don't exist in your schema.
   # We now validate the columns we actually have.
-  validates :name, :license_number, presence: true
+  validates :name, presence: true
+  validates :license_number, presence: true, uniqueness: true
 
   # Since 'license_expiration_date' is also missing from your column list,
   # we should remove or comment out this method to prevent NoMethodErrors.
@@ -30,7 +31,7 @@ class Provider < ApplicationRecord
 
     case risk_score
     when 0..30  then "Low Risk"
-    when 31..70 then "Moderate Risk"
+    when 31..69 then "Moderate Risk"
     else "High Risk"
     end
   end

@@ -20,6 +20,13 @@ RSpec.describe Provider, type: :model do
       expect(provider).not_to be_valid
       expect(provider.errors[:license_number]).to include("can't be blank")
     end
+
+    it "is invalid when license_number is not unique" do
+      Provider.create!(name: "Existing", license_number: "LIC-DUP-1")
+      dup = Provider.new(name: "Other", license_number: "LIC-DUP-1")
+      expect(dup).not_to be_valid
+      expect(dup.errors[:license_number]).to include("has already been taken")
+    end
   end
 
   describe "Associations" do
@@ -35,9 +42,21 @@ RSpec.describe Provider, type: :model do
   end
 
   describe "#risk_status" do
+    before { provider.last_assessed_at = Time.current }
+
     it "returns 'Low Risk' for a score of 30" do
-      provider.assign_attributes(risk_score: 30, last_assessed_at: Time.current)
+      provider.risk_score = 30
       expect(provider.risk_status).to eq('Low Risk')
+    end
+
+    it "returns 'Moderate Risk' up to 69 (aligned with risk_flags NEEDS_REVIEW max)" do
+      provider.risk_score = 69
+      expect(provider.risk_status).to eq('Moderate Risk')
+    end
+
+    it "returns 'High Risk' from 70 onward (aligned with HIGH_PRIORITY_AUDIT threshold)" do
+      provider.risk_score = 70
+      expect(provider.risk_status).to eq('High Risk')
     end
   end
 end
