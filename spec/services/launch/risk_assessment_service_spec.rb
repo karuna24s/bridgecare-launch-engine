@@ -44,7 +44,7 @@ RSpec.describe Launch::RiskAssessmentService do
       it "calculates the correct weighted total" do
         # 40 + 30 + 10 = 80
         expect(service.call).to eq(80)
-        expect(provider.risk_flags).to include("HIGH_PRIORITY_AUDIT")
+        expect(provider.risk_flags).to include("HIGH_PRIORITY_AUDIT", "NEEDS_REVIEW")
       end
     end
 

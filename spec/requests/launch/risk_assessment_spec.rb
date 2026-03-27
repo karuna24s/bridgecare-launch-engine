@@ -38,6 +38,7 @@ RSpec.describe "Program Assurance Engine", type: :request do
       Launch::RiskAssessmentService.new(provider).call
 
       expect(provider.reload.risk_score).to eq(100)
+      expect(provider.risk_flags).to include("NEEDS_REVIEW", "HIGH_PRIORITY_AUDIT")
     end
   end
 

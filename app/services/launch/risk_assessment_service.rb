@@ -54,11 +54,11 @@ module Launch
 
     def generate_risk_flags(score)
       [].tap do |flags|
-        # High Priority: 70 and above
+        # High Priority: 70 and above (subset still needing review)
         flags << "HIGH_PRIORITY_AUDIT" if score >= 70
 
-        # Needs Review: Now starts at 1 to catch any violation
-        flags << "NEEDS_REVIEW" if score.between?(1, 69)
+        # Any non-zero score requires review (includes 70+; do not cap at 69)
+        flags << "NEEDS_REVIEW" if score.positive?
 
         flags << "MISSING_BACKGROUND_CHECK" if @provider.background_check_id.blank?
         flags << "INSURANCE_GAP" unless @provider.insurance_verified?
