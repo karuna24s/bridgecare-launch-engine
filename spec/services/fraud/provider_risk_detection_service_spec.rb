@@ -3,6 +3,15 @@
 require "rails_helper"
 
 RSpec.describe Fraud::ProviderRiskDetectionService do
+  # Violation uses after_*_commit; the default example transaction never commits.
+  self.use_transactional_tests = false
+
+  after do
+    FraudFlag.delete_all
+    Violation.delete_all
+    Provider.delete_all
+  end
+
   let(:provider) { create(:provider, name: "Sunset Daycare") }
   subject(:service) { described_class.new }
 

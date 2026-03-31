@@ -7,6 +7,15 @@ module Fraud
   class ProviderRiskDetectionService
     FLAG_TYPE = "high_violation_volume"
 
+    # Locks providers in id order to avoid deadlocks when concurrent updates reassign violations
+    # in opposite directions between the same two providers.
+    def self.scan_providers_by_sorted_ids!(raw_ids)
+      raw_ids.compact.uniq.sort.each do |id|
+        provider = Provider.find_by(id: id)
+        new.call(provider) if provider
+      end
+    end
+
     def call(provider = nil)
       if provider
         evaluate_provider!(provider)
