@@ -1,20 +1,33 @@
-# app/services/fraud/provider_risk_detection_service.rb
+# frozen_string_literal: true
+
 module Fraud
   class ProviderRiskDetectionService
-    def call
-      Provider.find_each do |provider|
-        # Focus on 'critical' unresolved violations based on the model's inclusion list
-        unresolved_count = provider.violations.where(resolved: false, severity: "critical").count
+    def call(provider = nil)
+      # Fix: High Severity - Service now accepts an optional single provider
+      # for targeted assessment (e.g., from a model callback).
+      providers = provider ? [provider] : Provider.all
 
-        if unresolved_count > 3
-          FraudFlag.find_or_create_by!(
-            provider: provider,
-            flag_type: "high_violation_volume",
-            status: "pending"
-          ) do |flag|
-            flag.metadata = { unresolved_count: unresolved_count }
-          end
-        end
+      providers.each do |p|
+        unresolved_count = p.violations.where(resolved: false, severity: "critical").count
+
+        next unless unresolved_count > 3
+
+        # Fix: Race can crash fraud flag creation (Medium Severity)
+        # create_or_find_by! is atomic at the DB level.
+        flag = FraudFlag.create_or_find_by!(
+          provider: p,
+          flag_type: "high_violation_volume",
+          status: "pending"
+        )
+
+        # Fix: Flag metadata never refreshes (Low Severity)
+        # We explicitly update metadata to reflect the current count.
+        flag.update!(
+          metadata: flag.metadata.merge(
+            "unresolved_count" => unresolved_count,
+            "last_detected_at" => Time.current
+          )
+        )
       end
     end
   end
