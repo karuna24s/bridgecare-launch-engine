@@ -11,13 +11,29 @@ RSpec.describe Launch::BackgroundCheckService do
         expect { service.sync! }.to change { provider.reload.background_check_id }.from(nil)
       end
 
+      it 'persists background_check_status from the sync response' do
+        service.sync!
+        expect(provider.reload.background_check_status).to eq('cleared')
+      end
+
       it 'triggers the RiskAssessmentService' do
-        # We mock the RiskAssessmentService to ensure this service is delegating correctly
         risk_double = instance_double(Launch::RiskAssessmentService)
         allow(Launch::RiskAssessmentService).to receive(:new).with(provider).and_return(risk_double)
 
-        expect(risk_double).to receive(:call)
+        expect(risk_double).to receive(:call).and_return(0)
         service.sync!
+      end
+    end
+
+    context 'when risk assessment returns false' do
+      before do
+        allow_any_instance_of(Launch::RiskAssessmentService).to receive(:call).and_return(false)
+      end
+
+      it 'rolls back the provider update and returns false' do
+        expect(service.sync!).to be false
+        expect(provider.reload.background_check_id).to be_nil
+        expect(provider.reload.background_check_status).to be_nil
       end
     end
 

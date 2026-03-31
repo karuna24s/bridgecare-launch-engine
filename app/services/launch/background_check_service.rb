@@ -9,22 +9,23 @@ module Launch
     end
 
     def sync!
-      # We wrap this in a transaction to ensure that the provider update
-      # and the subsequent risk re-assessment happen atomically.
-      ActiveRecord::Base.transaction do
-        response = fetch_external_data
+      # External I/O outside the transaction so we do not hold a DB connection during HTTP / vendor latency.
+      response = fetch_external_data
 
+      # Provider update + risk scoring must commit together; risk service returns false on failure without raising.
+      ActiveRecord::Base.transaction do
         @provider.update!(
           background_check_id: response[:id],
-          # Note: Ensure background_check_status is added to your schema if not present
+          background_check_status: response[:status],
           last_assessed_at: Time.current
         )
 
-        # Immediately re-calculate risk now that we have background check data
-        Launch::RiskAssessmentService.new(@provider).call
+        risk_result = Launch::RiskAssessmentService.new(@provider).call
+        raise RiskAssessmentError, "Risk assessment did not complete" if risk_result == false
       end
+
+      true
     rescue StandardError => e
-      # Basic error logging for the 'In Review' phase
       Rails.logger.error "[BackgroundCheckService] Sync failed for Provider #{@provider.id}: #{e.message}"
       false
     end

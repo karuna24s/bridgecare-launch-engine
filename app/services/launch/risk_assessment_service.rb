@@ -1,6 +1,9 @@
 # app/services/launch/risk_assessment_service.rb
 
 module Launch
+  # Raised when {#call} cannot complete (e.g. RecordInvalid); callers in a transaction should handle or allow rollback.
+  class RiskAssessmentError < StandardError; end
+
   # RiskAssessmentService calculates a compliance risk score for a provider.
   # Calibrated for BridgeCare's specific schema (Background Checks & Insurance).
   class RiskAssessmentService
