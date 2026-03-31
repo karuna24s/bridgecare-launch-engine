@@ -5,7 +5,7 @@ module Fraud
     def call(provider = nil)
       # Fix: High Severity - Service now accepts an optional single provider
       # for targeted assessment (e.g., from a model callback).
-      providers = provider ? [provider] : Provider.all
+      providers = provider ? [ provider ] : Provider.all
 
       providers.each do |p|
         unresolved_count = p.violations.where(resolved: false, severity: "critical").count

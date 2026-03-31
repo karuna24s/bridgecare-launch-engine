@@ -11,7 +11,7 @@ class Violation < ApplicationRecord
   # Standard Program Assurance validations
   validates :category, :severity, presence: true
   validates :severity, inclusion: { in: %w[critical minor] }
-  validates :resolved, inclusion: { in: [true, false] }
+  validates :resolved, inclusion: { in: [ true, false ] }
 
   # Unresolved violations (resolved is NOT NULL in the database).
   scope :active, -> { where(resolved: false) }
