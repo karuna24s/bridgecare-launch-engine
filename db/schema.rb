@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_03_31_140000) do
+ActiveRecord::Schema[7.2].define(version: 2026_04_01_090000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -23,6 +23,17 @@ ActiveRecord::Schema[7.2].define(version: 2026_03_31_140000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["loggable_type", "loggable_id"], name: "index_activity_logs_on_loggable"
+  end
+
+  create_table "fraud_flags", force: :cascade do |t|
+    t.bigint "provider_id", null: false
+    t.string "flag_type", null: false
+    t.string "status", default: "pending", null: false
+    t.jsonb "metadata", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["provider_id", "flag_type"], name: "index_fraud_flags_unique_pending_provider_flag_type", unique: true, where: "((status)::text = 'pending'::text)"
+    t.index ["provider_id"], name: "index_fraud_flags_on_provider_id"
   end
 
   create_table "providers", force: :cascade do |t|
@@ -55,5 +66,6 @@ ActiveRecord::Schema[7.2].define(version: 2026_03_31_140000) do
     t.index ["provider_id"], name: "index_violations_on_provider_id"
   end
 
+  add_foreign_key "fraud_flags", "providers"
   add_foreign_key "violations", "providers"
 end
