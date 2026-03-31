@@ -8,8 +8,6 @@ RSpec.describe Fraud::ProviderRiskDetectionService do
 
   describe "#call" do
     it "automatically flags providers via model callbacks after 4 critical violations" do
-      # We expect exactly 1 flag to be created automatically by the
-      # after_create_commit hook in the Violation model.
       expect {
         4.times do
           Violation.create!(
@@ -24,6 +22,7 @@ RSpec.describe Fraud::ProviderRiskDetectionService do
       flag = FraudFlag.last
       expect(flag.provider).to eq(provider)
       expect(flag.metadata["unresolved_count"]).to eq(4)
+      expect(flag.status).to eq("pending")
     end
 
     it "does not flag providers with only 3 violations" do
@@ -37,6 +36,52 @@ RSpec.describe Fraud::ProviderRiskDetectionService do
           )
         end
       }.not_to change(FraudFlag, :count)
+    end
+
+    it "clears a pending flag when unresolved critical count drops to 3 or below" do
+      violations = []
+      4.times do
+        violations << Violation.create!(
+          provider: provider,
+          category: "safety",
+          severity: "critical",
+          resolved: false
+        )
+      end
+
+      expect(FraudFlag.pending.where(provider: provider).count).to eq(1)
+
+      violations.first.update!(resolved: true)
+
+      expect(FraudFlag.pending.where(provider: provider).count).to eq(0)
+      cleared = FraudFlag.where(provider: provider, flag_type: "high_violation_volume").last
+      expect(cleared.status).to eq("cleared")
+      expect(cleared.metadata["cleared_reason"]).to eq("below_threshold")
+      expect(cleared.metadata["unresolved_count_at_clear"]).to eq(3)
+    end
+
+    it "refreshes metadata on repeat scans above threshold" do
+      4.times do
+        Violation.create!(
+          provider: provider,
+          category: "safety",
+          severity: "critical",
+          resolved: false
+        )
+      end
+
+      flag_id = FraudFlag.pending.find_by!(provider: provider).id
+
+      Violation.create!(
+        provider: provider,
+        category: "safety",
+        severity: "critical",
+        resolved: false
+      )
+
+      service.call(provider)
+
+      expect(FraudFlag.find(flag_id).metadata["unresolved_count"]).to eq(5)
     end
   end
 end

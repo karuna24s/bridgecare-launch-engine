@@ -4,9 +4,10 @@ class Violation < ApplicationRecord
   # Ensure the association back to provider is defined
   belongs_to :provider
 
-  # Fix: Risk detection service is never executed (High Severity)
-  # Automatically triggers assessment when a critical violation is logged.
-  after_create_commit :trigger_risk_assessment, if: -> { severity == "critical" }
+  # Use after_create/after_update (not *_commit) so scans run inside the app transaction and
+  # fire under RSpec transactional fixtures, where the outer test transaction never commits.
+  after_create :trigger_provider_fraud_risk_scan, if: -> { severity == "critical" }
+  after_update :trigger_provider_fraud_risk_scan, if: :should_rescan_fraud_risk?
 
   # Standard Program Assurance validations
   validates :category, :severity, presence: true
@@ -20,8 +21,11 @@ class Violation < ApplicationRecord
 
   private
 
-  def trigger_risk_assessment
-    # This ensures our new Fraud engine is actually utilized in production
+  def should_rescan_fraud_risk?
+    saved_change_to_resolved? || saved_change_to_severity?
+  end
+
+  def trigger_provider_fraud_risk_scan
     Fraud::ProviderRiskDetectionService.new.call(provider)
   end
 end

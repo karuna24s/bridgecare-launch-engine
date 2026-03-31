@@ -12,6 +12,24 @@ RSpec.describe FraudFlag, type: :model do
     end
   end
 
+  describe ".pending" do
+    it "includes only pending-status flags" do
+      FraudFlag.create!(
+        provider: provider,
+        flag_type: "high_violation_volume",
+        status: "pending"
+      )
+      FraudFlag.create!(
+        provider: Provider.create!(name: "Other", license_number: "LIC-#{SecureRandom.hex(4)}"),
+        flag_type: "high_violation_volume",
+        status: "cleared"
+      )
+
+      expect(FraudFlag.pending.pluck(:status)).to all(eq("pending"))
+      expect(FraudFlag.pending.count).to eq(1)
+    end
+  end
+
   describe "validations" do
     it "is invalid without a flag_type" do
       flag = FraudFlag.new(flag_type: nil)
