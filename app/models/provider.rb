@@ -1,5 +1,5 @@
-# app/models/provider.rb
-#
+# frozen_string_literal: true
+
 # Model: Provider
 # Purpose: Core data entity for the Launch Engine.
 # Note: Logic is encapsulated in Service Objects to maintain testability.
@@ -12,16 +12,13 @@ class Provider < ApplicationRecord
   # If a provider is deleted, their violation history is cleaned up.
   has_many :violations, dependent: :destroy
 
-  # UPDATED: We removed 'license_type' and 'state' because they don't exist in your schema.
-  # We now validate the columns we actually have.
+  # BUGFIX: Provider deletion blocked by new foreign key (Medium Severity)
+  # Ensures related fraud flags are removed to avoid foreign key violations.
+  has_many :fraud_flags, dependent: :destroy
+
+  # Validating the columns that actually exist in the schema.
   validates :name, presence: true
   validates :license_number, presence: true, uniqueness: true
-
-  # Since 'license_expiration_date' is also missing from your column list,
-  # we should remove or comment out this method to prevent NoMethodErrors.
-  # def license_expired?
-  #   false
-  # end
 
   # Returns a user-friendly risk status based on the engine's score.
   def risk_status
