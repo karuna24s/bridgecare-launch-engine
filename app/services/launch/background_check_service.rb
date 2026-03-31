@@ -1,6 +1,4 @@
 # app/services/launch/background_check_service.rb
-# Service to manage the ingestion and synchronization of 3rd-party background check data.
-# This supports the 'Program Assurance' initiative by automating risk factor updates.
 
 module Launch
   class BackgroundCheckService
@@ -8,37 +6,50 @@ module Launch
       @provider = provider
     end
 
+    # Orchestrates the background check sync and subsequent risk assessment.
+    # @return [Boolean] true if the entire operation succeeded and committed.
     def sync!
-      # External I/O outside the transaction so we do not hold a DB connection during HTTP / vendor latency.
+      # 1. I/O Isolation: Fetch data outside the DB transaction to avoid connection holding.
       response = fetch_external_data
+      return false unless response
 
-      # Provider update + risk scoring must commit together; risk service returns false on failure without raising.
+      # 2. Transactional Integrity: Ensure both updates succeed or both roll back.
       ActiveRecord::Base.transaction do
+        # Do not set last_assessed_at here — RiskAssessmentService#call writes it when the risk run completes.
         @provider.update!(
           background_check_id: response[:id],
           background_check_status: response[:status],
-          last_assessed_at: Time.current
+          last_bgc_sync_at: Time.current
         )
 
-        risk_result = Launch::RiskAssessmentService.new(@provider).call
-        raise RiskAssessmentError, "Risk assessment did not complete" if risk_result == false
+        # 3. Hard Failure Pattern: This will raise Launch::RiskAssessmentError on failure,
+        # triggering a rollback of the provider update above.
+        Launch::RiskAssessmentService.new(@provider).call
       end
 
       true
+    rescue Launch::RiskAssessmentError => e
+      Rails.logger.error "[BackgroundCheckService] Risk Assessment failed: #{e.message}"
+      false
+    rescue ActiveRecord::RecordInvalid => e
+      Rails.logger.error "[BackgroundCheckService] Provider update failed: #{e.message}"
+      false
     rescue StandardError => e
-      Rails.logger.error "[BackgroundCheckService] Sync failed for Provider #{@provider.id}: #{e.message}"
+      Rails.logger.error "[BackgroundCheckService] Unexpected error: #{e.message}"
       false
     end
 
     private
 
     def fetch_external_data
-      # Simulating a call to a State Background Check API
-      # In a production environment, this would use Faraday or Net::HTTP
+      # Simulating an external API call.
       {
         id: "BGC-#{SecureRandom.hex(6).upcase}",
         status: "cleared"
       }
+    rescue StandardError => e
+      Rails.logger.error "[BackgroundCheckService] External API fetch failed: #{e.message}"
+      nil
     end
   end
 end

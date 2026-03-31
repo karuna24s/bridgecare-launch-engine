@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_03_31_120000) do
+ActiveRecord::Schema[7.2].define(version: 2026_03_31_130000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -37,6 +37,7 @@ ActiveRecord::Schema[7.2].define(version: 2026_03_31_120000) do
     t.jsonb "risk_flags", default: []
     t.datetime "last_assessed_at"
     t.string "background_check_status"
+    t.datetime "last_bgc_sync_at"
     t.index ["license_number"], name: "index_providers_on_license_number", unique: true, where: "((license_number IS NOT NULL) AND ((license_number)::text <> ''::text))"
     t.index ["risk_flags"], name: "index_providers_on_risk_flags", using: :gin
     t.index ["risk_score"], name: "index_providers_on_risk_score"
@@ -47,7 +48,7 @@ ActiveRecord::Schema[7.2].define(version: 2026_03_31_120000) do
     t.string "category", null: false
     t.string "severity", null: false
     t.text "description"
-    t.boolean "resolved", default: false, null: false
+    t.boolean "resolved", default: false
     t.date "occurred_on"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false

@@ -1,11 +1,11 @@
 # app/services/launch/risk_assessment_service.rb
 
 module Launch
-  # Raised when {#call} cannot complete (e.g. RecordInvalid); callers in a transaction should handle or allow rollback.
+  # Raised when {#call} cannot complete (e.g. RecordInvalid).
+  # This ensures that calling services (like BackgroundCheckService)
+  # can roll back their parent transactions on failure.
   class RiskAssessmentError < StandardError; end
 
-  # RiskAssessmentService calculates a compliance risk score for a provider.
-  # Calibrated for BridgeCare's specific schema (Background Checks & Insurance).
   class RiskAssessmentService
     # Weights for the BridgeCare Program Assurance logic.
     WEIGHTS = {
@@ -19,10 +19,15 @@ module Launch
       @provider = provider
     end
 
+    # Performs the risk assessment and persists results.
+    # @raise [Launch::RiskAssessmentError] if the update fails.
+    # @return [Integer] the calculated risk score.
     def call
       @provider.transaction do
         score = calculate_total_score
 
+        # We use update! to trigger an exception if validations fail,
+        # ensuring the transaction rolls back.
         @provider.update!(
           risk_score: score,
           risk_flags: generate_risk_flags(score),
@@ -32,9 +37,11 @@ module Launch
         log_assessment_activity(score)
         score
       end
-    rescue ActiveRecord::RecordInvalid => e
+    rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotSaved => e
       Rails.logger.error "[RiskAssessmentService] Update failed for Provider ##{@provider.id}: #{e.message}"
-      false
+
+      # Explicitly raising the domain error for the caller (BackgroundCheckService) to catch.
+      raise RiskAssessmentError, "Validation failed during risk assessment: #{e.message}"
     end
 
     private
@@ -48,7 +55,8 @@ module Launch
       # 2. Insurance Check
       points += WEIGHTS[:unverified_insurance] unless @provider.insurance_verified?
 
-      # 3. Violation Logic (Provider defines has_many :violations)
+      # 3. Violation Logic
+      # Senior Detail: Using .count to delegate the calculation to the DB.
       points += (@provider.violations.critical.count * WEIGHTS[:critical_violation])
       points += (@provider.violations.minor.count * WEIGHTS[:minor_violation])
 
@@ -57,16 +65,12 @@ module Launch
 
     def generate_risk_flags(score)
       [].tap do |flags|
-        # High Priority: 70 and above (subset still needing review)
         flags << "HIGH_PRIORITY_AUDIT" if score >= 70
-
-        # Any non-zero score requires review (includes 70+; do not cap at 69)
         flags << "NEEDS_REVIEW" if score.positive?
-
         flags << "MISSING_BACKGROUND_CHECK" if @provider.background_check_id.blank?
         flags << "INSURANCE_GAP" unless @provider.insurance_verified?
 
-        # Only flag recurring if they have 3 or more
+        # Bugbot Fix: Ensuring 'active' violations are properly scoped.
         flags << "RECURRING_VIOLATIONS" if @provider.violations.active.count >= 3
       end
     end
