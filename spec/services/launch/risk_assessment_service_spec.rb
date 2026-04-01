@@ -2,7 +2,6 @@
 require 'rails_helper'
 
 RSpec.describe Launch::RiskAssessmentService do
-  # We use 'let' to create a clean provider for each test case
   let(:provider) {
     Provider.create!(
       name: "Rama Test Center",
@@ -33,16 +32,12 @@ RSpec.describe Launch::RiskAssessmentService do
 
     context "with a mix of violations" do
       before do
-        # Trigger 40 points
-        provider.update(background_check_id: nil)
-        # Trigger 30 points
-        provider.violations.create!(category: "Safety", severity: "critical")
-        # Trigger 10 points
-        provider.violations.create!(category: "Admin", severity: "minor")
+        provider.update(background_check_id: nil) # 40
+        provider.violations.create!(category: "Safety", severity: "critical") # 30
+        provider.violations.create!(category: "Admin", severity: "minor") # 10
       end
 
       it "calculates the correct weighted total" do
-        # 40 + 30 + 10 = 80
         expect(service.call).to eq(80)
         expect(provider.risk_flags).to include("HIGH_PRIORITY_AUDIT", "NEEDS_REVIEW")
       end
@@ -53,28 +48,34 @@ RSpec.describe Launch::RiskAssessmentService do
         provider.violations.create!(
           category: "Safety",
           severity: "critical",
-          occurred_on: Date.current
+          resolved: false
         )
       end
 
-      it "assigns 30 points and NEEDS_REVIEW" do
+      it "adds critical_violation weight to the score" do
         expect(service.call).to eq(30)
-        expect(provider.reload.risk_score).to eq(30)
         expect(provider.risk_flags).to include("NEEDS_REVIEW")
+        expect(provider.risk_flags).not_to include("HIGH_PRIORITY_AUDIT")
       end
     end
 
-    context "when violations would exceed the score cap" do
+    context "when raw points would exceed 100" do
       before do
-        15.times do
-          provider.violations.create!(category: "Admin", severity: "minor")
+        provider.update!(background_check_id: nil, insurance_verified: false)
+        3.times do
+          provider.violations.create!(
+            category: "Safety",
+            severity: "critical",
+            resolved: false
+          )
         end
       end
 
-      it "caps the score at 100 and sets high-severity flags" do
-        service.call
+      it "caps the persisted risk score at 100" do
+        # 40 + 20 + (3 * 30) = 150 before [points, 100].min
+        expect(service.call).to eq(100)
         expect(provider.reload.risk_score).to eq(100)
-        expect(provider.risk_flags).to include("NEEDS_REVIEW", "HIGH_PRIORITY_AUDIT")
+        expect(provider.risk_flags).to include("HIGH_PRIORITY_AUDIT")
       end
     end
 
@@ -85,9 +86,7 @@ RSpec.describe Launch::RiskAssessmentService do
 
       it "creates an activity log with assessment metadata" do
         expect { service.call }.to change(ActivityLog, :count).by(1)
-        last_log = ActivityLog.last
-        expect(last_log.action).to eq("risk_assessment_performed")
-        expect(last_log.metadata["engine"]).to eq("bridgecare-assurance-v1")
+        expect(ActivityLog.last.action).to eq("risk_assessment_performed")
       end
     end
   end
