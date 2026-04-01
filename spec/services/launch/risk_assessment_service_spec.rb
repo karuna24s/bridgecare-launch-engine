@@ -43,6 +43,42 @@ RSpec.describe Launch::RiskAssessmentService do
       end
     end
 
+    context "with a single critical violation" do
+      before do
+        provider.violations.create!(
+          category: "Safety",
+          severity: "critical",
+          resolved: false
+        )
+      end
+
+      it "adds critical_violation weight to the score" do
+        expect(service.call).to eq(30)
+        expect(provider.risk_flags).to include("NEEDS_REVIEW")
+        expect(provider.risk_flags).not_to include("HIGH_PRIORITY_AUDIT")
+      end
+    end
+
+    context "when raw points would exceed 100" do
+      before do
+        provider.update!(background_check_id: nil, insurance_verified: false)
+        3.times do
+          provider.violations.create!(
+            category: "Safety",
+            severity: "critical",
+            resolved: false
+          )
+        end
+      end
+
+      it "caps the persisted risk score at 100" do
+        # 40 + 20 + (3 * 30) = 150 before [points, 100].min
+        expect(service.call).to eq(100)
+        expect(provider.reload.risk_score).to eq(100)
+        expect(provider.risk_flags).to include("HIGH_PRIORITY_AUDIT")
+      end
+    end
+
     context "data integrity" do
       it "updates the last_assessed_at timestamp" do
         expect { service.call }.to change { provider.last_assessed_at }
