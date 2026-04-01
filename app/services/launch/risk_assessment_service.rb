@@ -2,8 +2,7 @@
 
 module Launch
   # Raised when {#call} cannot complete (e.g. RecordInvalid).
-  # This ensures that calling services (like BackgroundCheckService)
-  # can roll back their parent transactions on failure.
+  # This ensures that calling services can roll back their parent transactions on failure.
   class RiskAssessmentError < StandardError; end
 
   class RiskAssessmentService
@@ -39,8 +38,6 @@ module Launch
       end
     rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotSaved => e
       Rails.logger.error "[RiskAssessmentService] Update failed for Provider ##{@provider.id}: #{e.message}"
-
-      # Explicitly raising the domain error for the caller (BackgroundCheckService) to catch.
       raise RiskAssessmentError, "Validation failed during risk assessment: #{e.message}"
     end
 
@@ -60,7 +57,7 @@ module Launch
       points += (@provider.violations.critical.count * WEIGHTS[:critical_violation])
       points += (@provider.violations.minor.count * WEIGHTS[:minor_violation])
 
-      [ points, 100 ].min
+      [ points, 100 ].min # Cap the score at 100
     end
 
     def generate_risk_flags(score)
@@ -70,7 +67,7 @@ module Launch
         flags << "MISSING_BACKGROUND_CHECK" if @provider.background_check_id.blank?
         flags << "INSURANCE_GAP" unless @provider.insurance_verified?
 
-        # Bugbot Fix: Ensuring 'active' violations are properly scoped.
+        # Logic for recurring patterns
         flags << "RECURRING_VIOLATIONS" if @provider.violations.active.count >= 3
       end
     end
