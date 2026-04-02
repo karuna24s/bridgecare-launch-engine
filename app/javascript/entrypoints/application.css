@@ -1,0 +1,4 @@
+@import "tailwindcss";
+
+/* Ensure class names inside Vue SFCs are scanned (dynamic glob imports are not always traced). */
+@source "../Pages/**/*.vue";

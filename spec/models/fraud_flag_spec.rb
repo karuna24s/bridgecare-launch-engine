@@ -30,6 +30,23 @@ RSpec.describe FraudFlag, type: :model do
     end
   end
 
+  describe ".active" do
+    it "includes only actionable pending flags" do
+      open_flag = FraudFlag.create!(
+        provider: provider,
+        flag_type: "high_violation_volume",
+        status: "pending"
+      )
+      FraudFlag.create!(
+        provider: Provider.create!(name: "Cleared Co", license_number: "LIC-#{SecureRandom.hex(4)}"),
+        flag_type: "high_violation_volume",
+        status: "cleared"
+      )
+
+      expect(FraudFlag.active).to contain_exactly(open_flag)
+    end
+  end
+
   describe "validations" do
     it "is invalid without a flag_type" do
       flag = FraudFlag.new(flag_type: nil)

@@ -16,6 +16,8 @@ class Provider < ApplicationRecord
   # Ensures related fraud flags are removed to avoid foreign key violations.
   has_many :fraud_flags, dependent: :destroy
 
+  has_many :risk_assessment_audits, dependent: :destroy
+
   # Validating the columns that actually exist in the schema.
   validates :name, presence: true
   validates :license_number, presence: true, uniqueness: true

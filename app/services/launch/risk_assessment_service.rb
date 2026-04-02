@@ -2,7 +2,6 @@
 
 module Launch
   # Raised when {#call} cannot complete (e.g. RecordInvalid).
-  # This ensures that calling services can roll back their parent transactions on failure.
   class RiskAssessmentError < StandardError; end
 
   class RiskAssessmentService
@@ -14,27 +13,43 @@ module Launch
       minor_violation: 10
     }.freeze
 
-    def initialize(provider)
+    def initialize(provider, changed_by: "System")
       @provider = provider
+      @changed_by = changed_by
     end
 
-    # Performs the risk assessment and persists results.
-    # @raise [Launch::RiskAssessmentError] if the update fails.
+    # Performs the risk assessment and persists results with an audit trail.
+    # @raise [Launch::RiskAssessmentError] if the update or audit fails.
     # @return [Integer] the calculated risk score.
     def call
       @provider.transaction do
-        score = calculate_total_score
+        @provider.lock!
+        old_score = @provider.risk_score || 0
+        parts = score_calculation_parts
+        new_score = parts[:final_score]
+        breakdown = build_breakdown(parts)
 
-        # We use update! to trigger an exception if validations fail,
-        # ensuring the transaction rolls back.
+        # 1. Update the Provider state
         @provider.update!(
-          risk_score: score,
-          risk_flags: generate_risk_flags(score),
+          risk_score: new_score,
+          risk_flags: generate_risk_flags(new_score, parts),
           last_assessed_at: Time.current
         )
 
-        log_assessment_activity(score)
-        score
+        # 2. Create the Immutable Audit Record (Senior III Requirement)
+        # This ensures every score change is legally and technically traceable.
+        @provider.risk_assessment_audits.create!(
+          old_score: old_score,
+          new_score: new_score,
+          score_breakdown: breakdown,
+          reason: "Automated Program Assurance Engine Update",
+          changed_by: @changed_by
+        )
+
+        # 3. Maintain legacy activity log for general event tracking
+        log_assessment_activity(new_score)
+
+        new_score
       end
     rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotSaved => e
       Rails.logger.error "[RiskAssessmentService] Update failed for Provider ##{@provider.id}: #{e.message}"
@@ -43,32 +58,63 @@ module Launch
 
     private
 
-    def calculate_total_score
-      points = 0
+    # Single pass: violation counts + points + supplemental tallies used in the audit payload.
+    # Called once per {#call} so persisted score and JSONB snapshot cannot diverge mid-transaction.
+    def score_calculation_parts
+      crit_count = @provider.violations.critical.count
+      minor_count = @provider.violations.minor.count
 
-      # 1. Background Check Check
-      points += WEIGHTS[:missing_background_check] if @provider.background_check_id.blank?
+      pts_bg = @provider.background_check_id.blank? ? WEIGHTS[:missing_background_check] : 0
+      pts_ins = @provider.insurance_verified? ? 0 : WEIGHTS[:unverified_insurance]
+      pts_crit = crit_count * WEIGHTS[:critical_violation]
+      pts_minor = minor_count * WEIGHTS[:minor_violation]
 
-      # 2. Insurance Check
-      points += WEIGHTS[:unverified_insurance] unless @provider.insurance_verified?
-
-      # 3. Violation Logic
-      # Senior Detail: Using .count to delegate the calculation to the DB.
-      points += (@provider.violations.critical.count * WEIGHTS[:critical_violation])
-      points += (@provider.violations.minor.count * WEIGHTS[:minor_violation])
-
-      [ points, 100 ].min # Cap the score at 100
+      raw = pts_bg + pts_ins + pts_crit + pts_minor
+      {
+        critical_violation_count: crit_count,
+        minor_violation_count: minor_count,
+        points_background_check: pts_bg,
+        points_insurance: pts_ins,
+        points_critical_violations: pts_crit,
+        points_minor_violations: pts_minor,
+        raw_points_before_cap: raw,
+        final_score: [ raw, 100 ].min,
+        unresolved_violations_total: crit_count + minor_count,
+        active_fraud_flags: @provider.fraud_flags.active.count
+      }
     end
 
-    def generate_risk_flags(score)
+    # Builds audit JSON from a single {#score_calculation_parts} result (no second count pass).
+    def build_breakdown(parts)
+      {
+        weights_version: "v1",
+        weights: WEIGHTS.transform_keys(&:to_s),
+        data_snapshot: {
+          has_background_check: @provider.background_check_id.present?,
+          insurance_verified: @provider.insurance_verified?,
+          critical_violation_count: parts[:critical_violation_count],
+          minor_violation_count: parts[:minor_violation_count],
+          points_background_check: parts[:points_background_check],
+          points_insurance: parts[:points_insurance],
+          points_critical_violations: parts[:points_critical_violations],
+          points_minor_violations: parts[:points_minor_violations],
+          raw_points_before_cap: parts[:raw_points_before_cap],
+          score_after_cap: parts[:final_score]
+        },
+        supplemental_context: {
+          unresolved_violations_total: parts[:unresolved_violations_total],
+          active_fraud_flags: parts[:active_fraud_flags]
+        }
+      }
+    end
+
+    def generate_risk_flags(score, parts)
       [].tap do |flags|
         flags << "HIGH_PRIORITY_AUDIT" if score >= 70
         flags << "NEEDS_REVIEW" if score.positive?
         flags << "MISSING_BACKGROUND_CHECK" if @provider.background_check_id.blank?
         flags << "INSURANCE_GAP" unless @provider.insurance_verified?
-
-        # Logic for recurring patterns
-        flags << "RECURRING_VIOLATIONS" if @provider.violations.active.count >= 3
+        flags << "RECURRING_VIOLATIONS" if parts[:unresolved_violations_total] >= 3
       end
     end
 
