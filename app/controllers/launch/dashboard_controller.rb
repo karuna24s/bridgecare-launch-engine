@@ -14,8 +14,11 @@ module Launch
 
       # Inertia.render maps to app/javascript/Pages/Launch/Dashboard.vue
       render inertia: "Launch/Dashboard", props: {
-        providers: high_risk_providers.as_json(methods: [ :risk_flags ]),
-        audits: recent_audits.as_json(include: { provider: { only: :name } })
+        providers: high_risk_providers.as_json(only: %i[id name license_number risk_score risk_flags]),
+        audits: recent_audits.as_json(
+          only: %i[id new_score created_at changed_by],
+          include: { provider: { only: :name } }
+        )
       }
     end
   end

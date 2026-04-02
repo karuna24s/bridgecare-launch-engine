@@ -20,6 +20,10 @@
   </head>
 
   <body class="bg-slate-50">
-    <%= inertia_root %>
+    <% if inertia_rendering? %>
+      <%= inertia_root %>
+    <% else %>
+      <%= yield %>
+    <% end %>
   </body>
 </html>
