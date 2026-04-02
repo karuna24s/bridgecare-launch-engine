@@ -24,8 +24,9 @@ module Launch
     def call
       @provider.transaction do
         old_score = @provider.risk_score || 0
-        new_score = calculate_total_score
-        breakdown = generate_breakdown
+        parts = score_calculation_parts
+        new_score = parts[:final_score]
+        breakdown = build_breakdown(parts)
 
         # 1. Update the Provider state
         @provider.update!(
@@ -56,7 +57,8 @@ module Launch
 
     private
 
-    # Single source of truth for weighted points (used by {#calculate_total_score} and audit JSON).
+    # Single pass: violation counts + points + supplemental tallies used in the audit payload.
+    # Called once per {#call} so persisted score and JSONB snapshot cannot diverge mid-transaction.
     def score_calculation_parts
       crit_count = @provider.violations.critical.count
       minor_count = @provider.violations.minor.count
@@ -75,17 +77,14 @@ module Launch
         points_critical_violations: pts_crit,
         points_minor_violations: pts_minor,
         raw_points_before_cap: raw,
-        final_score: [ raw, 100 ].min
+        final_score: [ raw, 100 ].min,
+        unresolved_violations_total: crit_count + minor_count,
+        active_fraud_flags: @provider.fraud_flags.active.count
       }
     end
 
-    def calculate_total_score
-      score_calculation_parts[:final_score]
-    end
-
-    # Captures inputs and point lines that reproduce {#calculate_total_score} (compliance / audits).
-    def generate_breakdown
-      parts = score_calculation_parts
+    # Builds audit JSON from a single {#score_calculation_parts} result (no second count pass).
+    def build_breakdown(parts)
       {
         weights_version: "v1",
         weights: WEIGHTS.transform_keys(&:to_s),
@@ -102,8 +101,8 @@ module Launch
           score_after_cap: parts[:final_score]
         },
         supplemental_context: {
-          unresolved_violations_total: @provider.violations.unresolved.count,
-          active_fraud_flags: @provider.fraud_flags.active.count
+          unresolved_violations_total: parts[:unresolved_violations_total],
+          active_fraud_flags: parts[:active_fraud_flags]
         }
       }
     end
