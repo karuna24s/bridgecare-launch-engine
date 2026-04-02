@@ -1,11 +1,13 @@
 <script setup>
 import { ref } from 'vue'
-import { Head, router } from '@inertiajs/vue3'
+import { Head, router, usePage } from '@inertiajs/vue3'
 
 defineProps({
   providers: Array,
   audits: Array
 })
+
+const page = usePage()
 
 const scanningProviderId = ref(null)
 
@@ -34,6 +36,21 @@ const formatTime = (dateString) => {
 
   <div class="min-h-screen bg-slate-50 p-8">
     <div class="max-w-7xl mx-auto">
+      <div
+        v-if="page.flash?.notice"
+        class="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-900"
+        role="status"
+      >
+        {{ page.flash.notice }}
+      </div>
+      <div
+        v-if="page.flash?.alert"
+        class="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-900"
+        role="alert"
+      >
+        {{ page.flash.alert }}
+      </div>
+
       <header class="mb-10">
         <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">
           Program Assurance Engine
