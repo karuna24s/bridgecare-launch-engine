@@ -14,11 +14,9 @@ class Violation < ApplicationRecord
   validates :severity, inclusion: { in: %w[critical minor] }
   validates :resolved, inclusion: { in: [ true, false ] }
 
-  # Scopes: Centralizing the "Unresolved" logic
   scope :active, -> { where(resolved: false) }
-  scope :unresolved, -> { active } # Alias to support RiskAssessmentService
 
-  # Senior Detail: Severity scopes should only include active/unresolved issues
+  # Severity scopes include only active (unresolved) rows so resolved history does not affect risk.
   # to avoid skewing risk scores with historical/corrected data.
   scope :critical, -> { active.where(severity: "critical") }
   scope :minor, -> { active.where(severity: "minor") }

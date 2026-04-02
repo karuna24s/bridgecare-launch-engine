@@ -31,7 +31,7 @@ module Launch
         # 1. Update the Provider state
         @provider.update!(
           risk_score: new_score,
-          risk_flags: generate_risk_flags(new_score),
+          risk_flags: generate_risk_flags(new_score, parts),
           last_assessed_at: Time.current
         )
 
@@ -107,13 +107,13 @@ module Launch
       }
     end
 
-    def generate_risk_flags(score)
+    def generate_risk_flags(score, parts)
       [].tap do |flags|
         flags << "HIGH_PRIORITY_AUDIT" if score >= 70
         flags << "NEEDS_REVIEW" if score.positive?
         flags << "MISSING_BACKGROUND_CHECK" if @provider.background_check_id.blank?
         flags << "INSURANCE_GAP" unless @provider.insurance_verified?
-        flags << "RECURRING_VIOLATIONS" if @provider.violations.active.count >= 3
+        flags << "RECURRING_VIOLATIONS" if parts[:unresolved_violations_total] >= 3
       end
     end
 
