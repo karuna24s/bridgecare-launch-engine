@@ -8,4 +8,5 @@ class FraudFlag < ApplicationRecord
 
   # Helper to identify if a flag is still actionable
   scope :pending, -> { where(status: "pending") }
+  scope :active, -> { pending }
 end

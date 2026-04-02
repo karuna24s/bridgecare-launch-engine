@@ -2,7 +2,6 @@
 
 module Launch
   # Raised when {#call} cannot complete (e.g. RecordInvalid).
-  # This ensures that calling services can roll back their parent transactions on failure.
   class RiskAssessmentError < StandardError; end
 
   class RiskAssessmentService
@@ -14,27 +13,41 @@ module Launch
       minor_violation: 10
     }.freeze
 
-    def initialize(provider)
+    def initialize(provider, changed_by: "System")
       @provider = provider
+      @changed_by = changed_by
     end
 
-    # Performs the risk assessment and persists results.
-    # @raise [Launch::RiskAssessmentError] if the update fails.
+    # Performs the risk assessment and persists results with an audit trail.
+    # @raise [Launch::RiskAssessmentError] if the update or audit fails.
     # @return [Integer] the calculated risk score.
     def call
       @provider.transaction do
-        score = calculate_total_score
+        old_score = @provider.risk_score || 0
+        new_score = calculate_total_score
+        breakdown = generate_breakdown
 
-        # We use update! to trigger an exception if validations fail,
-        # ensuring the transaction rolls back.
+        # 1. Update the Provider state
         @provider.update!(
-          risk_score: score,
-          risk_flags: generate_risk_flags(score),
+          risk_score: new_score,
+          risk_flags: generate_risk_flags(new_score),
           last_assessed_at: Time.current
         )
 
-        log_assessment_activity(score)
-        score
+        # 2. Create the Immutable Audit Record (Senior III Requirement)
+        # This ensures every score change is legally and technically traceable.
+        @provider.risk_assessment_audits.create!(
+          old_score: old_score,
+          new_score: new_score,
+          score_breakdown: breakdown,
+          reason: "Automated Program Assurance Engine Update",
+          changed_by: @changed_by
+        )
+
+        # 3. Maintain legacy activity log for general event tracking
+        log_assessment_activity(new_score)
+
+        new_score
       end
     rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotSaved => e
       Rails.logger.error "[RiskAssessmentService] Update failed for Provider ##{@provider.id}: #{e.message}"
@@ -53,11 +66,24 @@ module Launch
       points += WEIGHTS[:unverified_insurance] unless @provider.insurance_verified?
 
       # 3. Violation Logic
-      # Senior Detail: Using .count to delegate the calculation to the DB.
       points += (@provider.violations.critical.count * WEIGHTS[:critical_violation])
       points += (@provider.violations.minor.count * WEIGHTS[:minor_violation])
 
-      [ points, 100 ].min # Cap the score at 100
+      [points, 100].min # Cap the score at 100
+    end
+
+    # Captures the exact inputs used for the calculation.
+    # Essential for future compliance audits if weights change.
+    def generate_breakdown
+      {
+        weights_version: "v1",
+        data_snapshot: {
+          unresolved_violations: @provider.violations.unresolved.count,
+          has_background_check: @provider.background_check_id.present?,
+          insurance_verified: @provider.insurance_verified?,
+          active_fraud_flags: @provider.fraud_flags.active.count
+        }
+      }
     end
 
     def generate_risk_flags(score)
@@ -66,8 +92,6 @@ module Launch
         flags << "NEEDS_REVIEW" if score.positive?
         flags << "MISSING_BACKGROUND_CHECK" if @provider.background_check_id.blank?
         flags << "INSURANCE_GAP" unless @provider.insurance_verified?
-
-        # Logic for recurring patterns
         flags << "RECURRING_VIOLATIONS" if @provider.violations.active.count >= 3
       end
     end
