@@ -23,6 +23,7 @@ module Launch
     # @return [Integer] the calculated risk score.
     def call
       @provider.transaction do
+        @provider.lock!
         old_score = @provider.risk_score || 0
         parts = score_calculation_parts
         new_score = parts[:final_score]

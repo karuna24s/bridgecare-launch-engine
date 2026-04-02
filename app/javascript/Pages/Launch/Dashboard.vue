@@ -47,7 +47,7 @@ const formatTime = (dateString) => {
         <div class="lg:col-span-2 space-y-6">
           <div class="flex items-center justify-between mb-2">
             <h2 class="text-lg font-bold text-slate-800 flex items-center">
-              <span class="flex h-3 w-3 mr-3">
+              <span class="relative flex h-3 w-3 mr-3">
                 <span class="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-red-400 opacity-75"></span>
                 <span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
               </span>
