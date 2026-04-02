@@ -56,31 +56,53 @@ module Launch
 
     private
 
-    def calculate_total_score
-      points = 0
+    # Single source of truth for weighted points (used by {#calculate_total_score} and audit JSON).
+    def score_calculation_parts
+      crit_count = @provider.violations.critical.count
+      minor_count = @provider.violations.minor.count
 
-      # 1. Background Check Check
-      points += WEIGHTS[:missing_background_check] if @provider.background_check_id.blank?
+      pts_bg = @provider.background_check_id.blank? ? WEIGHTS[:missing_background_check] : 0
+      pts_ins = @provider.insurance_verified? ? 0 : WEIGHTS[:unverified_insurance]
+      pts_crit = crit_count * WEIGHTS[:critical_violation]
+      pts_minor = minor_count * WEIGHTS[:minor_violation]
 
-      # 2. Insurance Check
-      points += WEIGHTS[:unverified_insurance] unless @provider.insurance_verified?
-
-      # 3. Violation Logic
-      points += (@provider.violations.critical.count * WEIGHTS[:critical_violation])
-      points += (@provider.violations.minor.count * WEIGHTS[:minor_violation])
-
-      [ points, 100 ].min # Cap the score at 100
+      raw = pts_bg + pts_ins + pts_crit + pts_minor
+      {
+        critical_violation_count: crit_count,
+        minor_violation_count: minor_count,
+        points_background_check: pts_bg,
+        points_insurance: pts_ins,
+        points_critical_violations: pts_crit,
+        points_minor_violations: pts_minor,
+        raw_points_before_cap: raw,
+        final_score: [ raw, 100 ].min
+      }
     end
 
-    # Captures the exact inputs used for the calculation.
-    # Essential for future compliance audits if weights change.
+    def calculate_total_score
+      score_calculation_parts[:final_score]
+    end
+
+    # Captures inputs and point lines that reproduce {#calculate_total_score} (compliance / audits).
     def generate_breakdown
+      parts = score_calculation_parts
       {
         weights_version: "v1",
+        weights: WEIGHTS.transform_keys(&:to_s),
         data_snapshot: {
-          unresolved_violations: @provider.violations.unresolved.count,
           has_background_check: @provider.background_check_id.present?,
           insurance_verified: @provider.insurance_verified?,
+          critical_violation_count: parts[:critical_violation_count],
+          minor_violation_count: parts[:minor_violation_count],
+          points_background_check: parts[:points_background_check],
+          points_insurance: parts[:points_insurance],
+          points_critical_violations: parts[:points_critical_violations],
+          points_minor_violations: parts[:points_minor_violations],
+          raw_points_before_cap: parts[:raw_points_before_cap],
+          score_after_cap: parts[:final_score]
+        },
+        supplemental_context: {
+          unresolved_violations_total: @provider.violations.unresolved.count,
           active_fraud_flags: @provider.fraud_flags.active.count
         }
       }

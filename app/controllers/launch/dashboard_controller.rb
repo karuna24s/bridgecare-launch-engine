@@ -3,7 +3,7 @@ module Launch
   class DashboardController < ApplicationController
     def index
       # Fetch high-risk providers for the primary queue
-      high_risk_providers = Provider.where("risk_score > ?", 70)
+      high_risk_providers = Provider.where("risk_score >= ?", 70)
                                     .order(risk_score: :desc)
                                     .limit(10)
 

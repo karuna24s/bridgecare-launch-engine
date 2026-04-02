@@ -37,9 +37,16 @@ RSpec.describe Launch::RiskAssessmentService do
         expect(score).to eq(70)
         expect(provider.risk_flags).to include("HIGH_PRIORITY_AUDIT")
 
-        # Verify JSONB Snapshot integrity
-        expect(audit.score_breakdown["data_snapshot"]["has_background_check"]).to be false
-        expect(audit.score_breakdown["data_snapshot"]["unresolved_violations"]).to eq(1)
+        # Verify JSONB snapshot reproduces the score (same inputs as calculate_total_score)
+        snap = audit.score_breakdown["data_snapshot"]
+        expect(snap["has_background_check"]).to be false
+        expect(snap["critical_violation_count"]).to eq(1)
+        expect(snap["minor_violation_count"]).to eq(0)
+        expect(snap["points_background_check"]).to eq(40)
+        expect(snap["points_critical_violations"]).to eq(30)
+        expect(snap["raw_points_before_cap"]).to eq(70)
+        expect(snap["score_after_cap"]).to eq(70)
+        expect(audit.score_breakdown["supplemental_context"]["unresolved_violations_total"]).to eq(1)
         expect(audit.changed_by).to eq("Test-Runner")
       end
     end

@@ -1,24 +1,25 @@
 <script setup>
-import { computed } from 'vue'
-import { Head, useForm } from '@inertiajs/vue3'
+import { ref } from 'vue'
+import { Head, router } from '@inertiajs/vue3'
 
-const props = defineProps({
+defineProps({
   providers: Array,
   audits: Array
 })
 
-// Inertia form helper manages the request state and CSRF automatically
-const form = useForm({})
+const scanningProviderId = ref(null)
 
 const triggerScan = (id) => {
-  form.post(`/launch/providers/${id}/evaluate`, {
+  scanningProviderId.value = id
+  router.post(`/launch/providers/${id}/evaluate`, {}, {
     preserveScroll: true,
-    onSuccess: () => {
-      // Data in 'props.audits' and 'props.providers' is now fresh
-      console.log("Assessment complete")
+    onFinish: () => {
+      scanningProviderId.value = null
     }
   })
 }
+
+const isScanning = (id) => scanningProviderId.value === id
 
 const formatTime = (dateString) => {
   return new Date(dateString).toLocaleTimeString([], {
@@ -63,14 +64,14 @@ const formatTime = (dateString) => {
 
                 <button
                   @click="triggerScan(provider.id)"
-                  :disabled="form.processing"
+                  :disabled="isScanning(provider.id)"
                   class="mt-4 inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-bold rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none disabled:opacity-50 transition-colors"
                 >
-                  <svg v-if="form.processing" class="animate-spin -ml-1 mr-2 h-3 w-3 text-white" fill="none" viewBox="0 0 24 24">
+                  <svg v-if="isScanning(provider.id)" class="animate-spin -ml-1 mr-2 h-3 w-3 text-white" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  {{ form.processing ? 'SCANNING...' : 'RE-SCAN NOW' }}
+                  {{ isScanning(provider.id) ? 'SCANNING...' : 'RE-SCAN NOW' }}
                 </button>
               </div>
 

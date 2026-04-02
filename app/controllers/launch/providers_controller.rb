@@ -9,18 +9,13 @@ module Launch
 
       # Senior III: We attribute the change to a "Manual-Advocate" for the audit trail
       service = Launch::RiskAssessmentService.new(provider, changed_by: "Manual-Advocate")
+      service.call
 
-      if service.call
-        # Inertia automatically re-fetches props for the dashboard on redirect
-        redirect_back fallback_location: launch_dashboard_path,
-                      notice: "Risk assessment recalculated for #{provider.name}."
-      else
-        redirect_back fallback_location: launch_dashboard_path,
-                      alert: "Assessment failed to complete."
-      end
+      redirect_back fallback_location: launch_dashboard_path,
+                    notice: "Risk assessment recalculated for #{provider.name}."
     rescue Launch::RiskAssessmentError => e
       redirect_back fallback_location: launch_dashboard_path,
-                    alert: "Error: #{e.message}"
+                    alert: "Assessment failed: #{e.message}"
     end
   end
 end
