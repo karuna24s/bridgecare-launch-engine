@@ -16,7 +16,7 @@ const triggerScan = (id) => {
   router.post(`/launch/providers/${id}/evaluate`, {}, {
     preserveScroll: true,
     onFinish: () => {
-      scanningProviderId.value = null
+      if (scanningProviderId.value === id) scanningProviderId.value = null
     }
   })
 }
