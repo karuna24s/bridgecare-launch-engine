@@ -69,7 +69,7 @@ module Launch
       points += (@provider.violations.critical.count * WEIGHTS[:critical_violation])
       points += (@provider.violations.minor.count * WEIGHTS[:minor_violation])
 
-      [points, 100].min # Cap the score at 100
+      [ points, 100 ].min # Cap the score at 100
     end
 
     # Captures the exact inputs used for the calculation.

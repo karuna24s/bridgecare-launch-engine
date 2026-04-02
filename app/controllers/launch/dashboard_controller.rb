@@ -13,8 +13,8 @@ module Launch
                                          .limit(10)
 
       # Inertia.render maps to app/javascript/Pages/Launch/Dashboard.vue
-      render inertia: 'Launch/Dashboard', props: {
-        providers: high_risk_providers.as_json(methods: [:risk_flags]),
+      render inertia: "Launch/Dashboard", props: {
+        providers: high_risk_providers.as_json(methods: [ :risk_flags ]),
         audits: recent_audits.as_json(include: { provider: { only: :name } })
       }
     end
