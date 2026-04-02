@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_04_01_090000) do
+ActiveRecord::Schema[7.2].define(version: 2026_04_02_204158) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -54,6 +54,19 @@ ActiveRecord::Schema[7.2].define(version: 2026_04_01_090000) do
     t.index ["risk_score"], name: "index_providers_on_risk_score"
   end
 
+  create_table "risk_assessment_audits", force: :cascade do |t|
+    t.bigint "provider_id", null: false
+    t.integer "old_score"
+    t.integer "new_score"
+    t.jsonb "score_breakdown", default: {}
+    t.string "reason"
+    t.string "changed_by"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["provider_id"], name: "index_risk_assessment_audits_on_provider_id"
+    t.index ["score_breakdown"], name: "index_risk_assessment_audits_on_score_breakdown", using: :gin
+  end
+
   create_table "violations", force: :cascade do |t|
     t.bigint "provider_id", null: false
     t.string "category", null: false
@@ -67,5 +80,6 @@ ActiveRecord::Schema[7.2].define(version: 2026_04_01_090000) do
   end
 
   add_foreign_key "fraud_flags", "providers"
+  add_foreign_key "risk_assessment_audits", "providers"
   add_foreign_key "violations", "providers"
 end

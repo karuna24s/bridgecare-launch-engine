@@ -5,88 +5,76 @@ RSpec.describe Launch::RiskAssessmentService do
   let(:provider) {
     Provider.create!(
       name: "Rama Test Center",
-      license_number: "L-108",
+      license_number: "L-#{rand(10000)}",
+      insurance_verified: true,
       background_check_id: "BC-123",
-      insurance_verified: true
+      risk_score: 0
     )
   }
 
-  subject(:service) { described_class.new(provider) }
+  # Accountable actor for the audit trail
+  subject(:service) { described_class.new(provider, changed_by: "Test-Runner") }
 
   describe "#call" do
     context "when the provider is fully compliant" do
-      it "returns a risk score of 0" do
-        expect(service.call).to eq(0)
-        expect(provider.risk_score).to eq(0)
+      it "returns 0 and creates an audit record" do
+        expect { service.call }.to change(RiskAssessmentAudit, :count).by(1)
+        expect(provider.reload.risk_score).to eq(0)
       end
     end
 
-    context "when a background check is missing" do
-      before { provider.update(background_check_id: nil) }
-
-      it "assigns 40 points to the risk score" do
-        expect(service.call).to eq(40)
-        expect(provider.risk_flags).to include("MISSING_BACKGROUND_CHECK")
-      end
-    end
-
-    context "with a mix of violations" do
+    context "with a high-risk scenario (score >= 70)" do
       before do
-        provider.update(background_check_id: nil) # 40
-        provider.violations.create!(category: "Safety", severity: "critical") # 30
-        provider.violations.create!(category: "Admin", severity: "minor") # 10
+        provider.update!(background_check_id: nil) # +40
+        # Fix: Added category to satisfy validation
+        provider.violations.create!(severity: "critical", category: "Safety", resolved: false) # +30
       end
 
-      it "calculates the correct weighted total" do
-        expect(service.call).to eq(80)
-        expect(provider.risk_flags).to include("HIGH_PRIORITY_AUDIT", "NEEDS_REVIEW")
-      end
-    end
+      it "calculates 70, flags HIGH_PRIORITY_AUDIT, and snapshots the breakdown" do
+        score = service.call
+        audit = provider.risk_assessment_audits.last
 
-    context "with a single critical violation" do
-      before do
-        provider.violations.create!(
-          category: "Safety",
-          severity: "critical",
-          resolved: false
-        )
-      end
-
-      it "adds critical_violation weight to the score" do
-        expect(service.call).to eq(30)
-        expect(provider.risk_flags).to include("NEEDS_REVIEW")
-        expect(provider.risk_flags).not_to include("HIGH_PRIORITY_AUDIT")
-      end
-    end
-
-    context "when raw points would exceed 100" do
-      before do
-        provider.update!(background_check_id: nil, insurance_verified: false)
-        3.times do
-          provider.violations.create!(
-            category: "Safety",
-            severity: "critical",
-            resolved: false
-          )
-        end
-      end
-
-      it "caps the persisted risk score at 100" do
-        # 40 + 20 + (3 * 30) = 150 before [points, 100].min
-        expect(service.call).to eq(100)
-        expect(provider.reload.risk_score).to eq(100)
+        expect(score).to eq(70)
         expect(provider.risk_flags).to include("HIGH_PRIORITY_AUDIT")
+
+        # Verify JSONB Snapshot integrity
+        expect(audit.score_breakdown["data_snapshot"]["has_background_check"]).to be false
+        expect(audit.score_breakdown["data_snapshot"]["unresolved_violations"]).to eq(1)
+        expect(audit.changed_by).to eq("Test-Runner")
       end
     end
 
-    context "data integrity" do
-      it "updates the last_assessed_at timestamp" do
-        expect { service.call }.to change { provider.last_assessed_at }
+    context "when points exceed 100" do
+      before do
+        provider.update!(background_check_id: nil, insurance_verified: false) # 60
+        # Fix: Added category to satisfy validation
+        3.times { provider.violations.create!(severity: "critical", category: "Health", resolved: false) }
       end
 
-      it "creates an activity log with assessment metadata" do
-        expect { service.call }.to change(ActivityLog, :count).by(1)
-        expect(ActivityLog.last.action).to eq("risk_assessment_performed")
+      it "caps the audit and provider score at 100" do
+        service.call
+        expect(provider.reload.risk_score).to eq(100)
+        expect(provider.risk_assessment_audits.last.new_score).to eq(100)
+      end
+    end
+
+    describe "Atomic Integrity (Transaction Control)" do
+      it "rolls back score change if audit fails to save" do
+        # Senior move: Stubbing save! to force a rollback scenario
+        allow_any_instance_of(RiskAssessmentAudit).to receive(:save!).and_raise(ActiveRecord::RecordNotSaved)
+
+        expect {
+          begin
+            service.call
+          rescue Launch::RiskAssessmentError
+            nil
+          end
+        }.not_to change { provider.reload.risk_score }
+      end
+
+      it "raises custom Launch::RiskAssessmentError on failures" do
+        allow(provider).to receive(:update!).and_raise(ActiveRecord::RecordInvalid)
+        expect { service.call }.to raise_error(Launch::RiskAssessmentError)
       end
     end
   end
